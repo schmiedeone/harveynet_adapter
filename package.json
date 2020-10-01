@@ -8,6 +8,7 @@
   "dependencies": {
     "pusher-js": "^6.0.2",
     "rosnodejs": "^3.0.2",
-    "wrtc": "^0.4.5"
+    "wrtc": "^0.4.5",
+    "uuid": "^8.2.0"
   }
 }

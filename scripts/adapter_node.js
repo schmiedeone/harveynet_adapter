@@ -2,6 +2,7 @@
 
 const rosnodejs = require('rosnodejs');
 const Pusher = require('pusher-js');
+const uuidv4 = require('uuid').v4;
 
 
 const appKey = 'fa20e14745781ba145ef';
@@ -124,21 +125,77 @@ function turtlebotMoveControlProcedure(nh) {
 
 // stream-based movement control
 function streamMoveControlProcedure(nh) {
-	const linearSpeed = 1;		// CONFIG
-	const angularSpeed = 1;		// CONFIG
+	const linearCoeff = 1 / 20;		// CONFIG
+	const angularCoeff = 1 / 20;		// CONFIG
 
-	const pub = nh.advertise('/cmd_vel', 'geometry_msgs/Twist');
+	let controlTopic = '/cmd_vel';		// TurtleBot3
+	if (process.env.TURTLEBOT2) {
+		controlTopic = '/cmd_vel_mux/input/teleop';	// TurtleBot2
+	}
+	const pub = nh.advertise(controlTopic, 'geometry_msgs/Twist');
 	
 	// TODO: refactor this
 	controlChannel.bind('client-move-command-stream', command => {
 		const { l, a } = command;
-		const lx = l * linearSpeed;
-		const az = a * angularSpeed;	
+		const lx = l * linearCoeff;
+		const az = a * angularCoeff;	
 		const msg = {
 			linear: { x: lx, y: 0, z: 0 },
 			angular: { x: 0, y: 0, z: az },
 		};
 		pub.publish(msg);
+	});
+}
+
+
+// joystick control
+function joystickControlProcedure(nh) {
+	const pub = nh.advertise('/cmd_vel', 'sensor_msgs/Joy');
+	let seq = 0;
+
+	// select
+	controlChannel.bind('client-select-click', () => {
+		const header = {
+			seq,
+			stamp: rosnodejs.Time.now(),
+			frame_id: uuidv4(),
+		};
+		const axes = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+		const buttons = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
+		const msg = { header,	axes, buttons };
+		pub.publish(msg);
+		seq++;
+	});
+	
+	// start
+	controlChannel.bind('client-start-click', () => {
+		const header = {
+			seq,
+			stamp: rosnodejs.Time.now(),
+			frame_id: uuidv4(),
+		};
+		const axes = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+		const buttons = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0];
+		const msg = { header,	axes, buttons };
+		pub.publish(msg);
+		seq++;
+	});
+
+	// sticks
+	controlChannel.bind('client-move-command-stream', command => {
+		const header = {
+			seq,
+			stamp: rosnodejs.Time.now(),
+			frame_id: uuidv4(),
+		};
+		const { l, a } = command;
+		const linear = l / 100;
+		const angular = a / 100;	
+		const axes = [0.0, linear, angular, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+		const buttons = [];
+		const msg = { header,	axes, buttons };
+		pub.publish(msg);
+		seq++;
 	});
 }
 
@@ -178,6 +235,7 @@ rosnodejs.initNode('/adapter')
 		odomProcedure(nh);
 		cameraProcedure(nh);
 		//turtlebotMoveControlProcedure(nh);
-		streamMoveControlProcedure(nh);
+		//streamMoveControlProcedure(nh);
+		joystickControlProcedure(nh);
 		toolControlProcedure(nh);
 	});
