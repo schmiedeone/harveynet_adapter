@@ -7,6 +7,17 @@ var ioClient = require("socket.io-client");
 
 var Audit = require('entity-diff');
 
+let requiredEnv = [
+  'SOCKET_HOST'
+];
+let unsetEnv = requiredEnv.filter((env) => !(typeof process.env[env] !== 'undefined'));
+
+if (unsetEnv.length > 0) {
+  throw new Error("Required ENV variables are not set: [" + unsetEnv.join(', ') + "]");
+}
+const socket_host = process.env.SOCKET_HOST
+const ENDPOINT = `http://${socket_host}:3000`
+
 /*
 This produces a list of changes like this: [{"key":"engine_off","from":0,"to":1}]
 */
@@ -154,6 +165,11 @@ function getIncrementMessage(msg, channel, value) {
 			...{'back_belt_rpm_increment': value}
 		};
 		break;
+		default:
+		console.log(channel);
+
+		throw `Channel - ${channel} - not recognized!`;
+		break;
 	}
 }
 function getDecrementMessage(msg, channel, value) {
@@ -175,6 +191,11 @@ function getDecrementMessage(msg, channel, value) {
 			...msg,
 			...{'back_belt_rpm_increment': -1*value}
 		};
+		break;
+		default:
+		console.log(channel);
+
+			throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
 }
@@ -234,6 +255,10 @@ function getSetMessage(msg, channel) {
 			...{'dammer_height': -1}
 		};
 		break;
+		default:
+		console.log(channel);
+		throw `Channel - ${channel} - not recognized!`;
+		break;
 	}
 }
 function getUnsetMessage(msg, channel) {
@@ -258,6 +283,10 @@ function getUnsetMessage(msg, channel) {
 		case 'intake_raise':
 		case 'intake_lower':
 		return {'dammer_height': 0};
+		break;
+		default:
+		console.log(channel);
+		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
 }
@@ -329,8 +358,7 @@ rosnodejs.initNode('/adapter', {onTheFly: true})
 
 	const nh = rosnodejs.nh;
 
-	socket = ioClient('http://localhost:3000');
-
+	socket = ioClient(ENDPOINT);
 	socket.on('connect', () => {
 		// Display a connected message
 		console.log("Connected to server");
