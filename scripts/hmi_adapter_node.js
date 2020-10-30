@@ -264,13 +264,23 @@ function getSetMessage(msg, channel) {
 function getUnsetMessage(msg, channel) {
 	switch (channel) {
 		case 'engine_on':
-		return {'engine_on': false};
+    return {
+			...msg,
+			...{'engine_on': false}
+		};
 		break;
 		case 'engine_off':
+    return {
+			...msg,
+			...{'engine_off': false}
+		};
 		return {'engine_off': false};
 		break;
 		case 'joystick_mode':
-		return {'joystick_mode': false};
+    return {
+			...msg,
+			...{'joystick_mode': false}
+		};
 		break;
 		case 'pallet_raise':
 		case 'pallet_lower':
