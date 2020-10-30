@@ -76,3 +76,12 @@ $ TURTLEBOT2=true rosrun harveynet_adapter adapter_node.js
 ```
 
 If the `TURTLEBOT2` variable is omitted, the adapter assumes that TurtleBot 3 is being used.
+
+# Debugging
+
+And error similar to the following happened when a subscriber and a publisher sourced two different versions of a message:
+
+[ERROR] [1604055855.947] (ros.rosnodejs): Unable to validate subscriber connection header {"callerid":"/rostopic_11509_1604055761698","md5sum":"0d075c0ce6543ae3c7e94979a356b760","message_definition":"std_msgs/Header header\nbool joystick_mode\nbool engine_on\nbool engine_off\nfloat32 left_track_speed\nfloat32 right_track_speed\nint16 track_speed_max_increment\nint8 front_belt_rpm_increment\nint8 back_belt_rpm_increment\nint8 dammer_height\nbool hmi_connected\nint8 pallet_height\nint8 pallet_tilt\n\n================================================================================\nMSG: std_msgs/Header\n# Standard metadata for higher-level stamped data types.\n# This is generally used to communicate timestamped data \n# in a particular coordinate frame.\n# \n# sequence ID: consecutively increasing ID \nuint32 seq\n#Two-integer timestamp that is expressed as:\n# * stamp.sec: seconds (stamp_secs) since epoch (in Python the variable is called 'secs')\n# * stamp.nsec: nanoseconds since stamp_secs (in Python the variable is called 'nsecs')\n# time-handling sugar is provided by the client library\ntime stamp\n#Frame this data is associated with\nstring frame_id\n","tcp_nodelay":"0","topic":"/harvey_controller/hmi_controller","type":"harvey_can/harvey_joy_msg"}
+
+The solution is to run catkin_make again in the workspace that holds the messages,
+and after that sourcing it again for all nodes that use that message.

@@ -255,6 +255,18 @@ function getSetMessage(msg, channel) {
 			...{'dammer_height': -1}
 		};
 		break;
+    case 'track_width_widen':
+		return {
+			...msg,
+			...{'track_width': 1}
+		};
+		break;
+    case 'track_width_narrow':
+		return {
+			...msg,
+			...{'track_width': -1}
+		};
+		break;
 		default:
 		console.log(channel);
 		throw `Channel - ${channel} - not recognized!`;
@@ -284,15 +296,31 @@ function getUnsetMessage(msg, channel) {
 		break;
 		case 'pallet_raise':
 		case 'pallet_lower':
-		return {'pallet_height': 0};
-		break;
+    return {
+			...msg,
+			...{'pallet_height': 0}
+		};
+    break;
 		case 'pallet_angle_up':
 		case 'pallet_angle_down':
-		return {'pallet_tilt': 0};
+    return {
+			...msg,
+			...{'pallet_tilt': 0}
+		};
 		break;
 		case 'intake_raise':
 		case 'intake_lower':
-		return {'dammer_height': 0};
+    return {
+			...msg,
+			...{'dammer_height': 0}
+		};
+		break;
+    case 'track_width_widen':
+		case 'track_width_narrow':
+    return {
+			...msg,
+			...{'track_width': 0}
+		};
 		break;
 		default:
 		console.log(channel);
@@ -348,13 +376,6 @@ function openMonitorTopic(nh, socket) {
 			nh.setParam('previous_state', msg);
 			socket.emit(`harvey-hmi-monitor`, packMonitorChanges(changes));
 		});
-	});
-}
-
-function openDisconnectMonitorTopic(nh, socket) {
-	const pub = nh.advertise(`/harvey_controller/hmi_disconnected`, 'std_msgs/Bool');
-	socket.sockets.on('disconnect',function(){
-		pub.publish(true);
 	});
 }
 
