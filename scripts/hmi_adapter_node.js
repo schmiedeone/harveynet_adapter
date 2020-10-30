@@ -166,8 +166,6 @@ function getIncrementMessage(msg, channel, value) {
 		};
 		break;
 		default:
-		console.log(channel);
-
 		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
@@ -193,8 +191,6 @@ function getDecrementMessage(msg, channel, value) {
 		};
 		break;
 		default:
-		console.log(channel);
-
 			throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
@@ -268,7 +264,6 @@ function getSetMessage(msg, channel) {
 		};
 		break;
 		default:
-		console.log(channel);
 		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
@@ -323,7 +318,6 @@ function getUnsetMessage(msg, channel) {
 		};
 		break;
 		default:
-		console.log(channel);
 		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
@@ -331,9 +325,7 @@ function getUnsetMessage(msg, channel) {
 
 function openToolControlTopic(nh, socket) {
 	const harvey_can = rosnodejs.require('harvey_can');
-	console.log('harvey_can fetched on the fly: ', harvey_can);
 	const harvey_joy_msg = harvey_can.msg.harvey_joy_msg;
-	console.log('harvey_joy_msg fetched on the fly: ', harvey_joy_msg);
 	// const StringMsg = std_msgs.msg.String;
 	const pub = nh.advertise(`/harvey_controller/hmi_controller`, harvey_joy_msg);
 
@@ -379,6 +371,44 @@ function openMonitorTopic(nh, socket) {
 	});
 }
 
+// Removing this for now because it gets a bit too complicated otherwise
+// function openConnectionErrorHandler(socket) {
+//   socket.on('connect_error', (error) => {
+//     console.log(error);
+//     // server_pub.publish({data: false});
+//   });
+// }
+
+function openConnectionMonitor(nh, socket) {
+  const std_msgs = rosnodejs.require('std_msgs');
+	const boolMsg = std_msgs.msg.Bool;
+
+  const server_pub = nh.advertise(`/harvey_controller/socket_server_connected`, boolMsg);
+  const hmi_pub = nh.advertise(`/harvey_controller/hmi_connected`, boolMsg);
+
+  socket.on('connect', () => {
+    // Display a connected message
+    console.log("Connected to server");
+    server_pub.publish({data: true});
+  });
+
+  socket.on('disconnect', () => {
+    console.log("Disconnected from server");
+    server_pub.publish({data: false});
+  });
+
+  socket.on('harvey-hmi-connection', (data) => {
+    if (data['connected'] == true) {
+      console.log("Connection between HMI and server established");
+      hmi_pub.publish({data: true});
+    } else {
+      console.log("Connection between HMI and server lost");
+      hmi_pub.publish({data: false});
+    }
+  });
+
+}
+
 console.log('starting ros node');
 
 // init adapter node
@@ -388,41 +418,21 @@ rosnodejs.initNode('/adapter', {onTheFly: true})
 	console.log('ros node is initiated');
 
 	const nh = rosnodejs.nh;
+	socket = ioClient(ENDPOINT, {
+    // reconnectionAttempts: 2,
+    query: {
+      name: "adapter",
+      type: 'on-robot-adapter'
+    }
+  });
 
-	socket = ioClient(ENDPOINT);
-	socket.on('connect', () => {
-		// Display a connected message
-		console.log("Connected to server");
-		// const pub = nh.advertise(`/harvey_controller/hmi_controller`, 'harvey_can/harvey_joy_msg');
+  // Removing this for now because it gets a bit too complicated otherwise
+  // openConnectionErrorHandler(socket);
 
-		// pub.publish({'engine_on': false})
-
-		// you can disable a feature by commenting out correspondind line below
-		// odomProcedure(nh);
-		// cameraProcedure(nh);
-		// //turtlebotMoveControlProcedure(nh);
-		// //streamMoveControlProcedure(nh);
-		// joystickControlProcedure(nh);
-		openToolControlTopic(nh, socket);
-	});
-
-	// socket.on(`harvey-hmi-control`, function(data, socket){
-	// 	const msg = new harvey_joy_msg({ joystick_mode: true });
-	// 	console.log(`harvey-hmi-control: %j`, data);
-	// 	pub.publish(msg);
-	// });
-	//
-	// socket.on("*",function(event,data) {
-	// 	console.log(event);
-	// 	console.log(data);
-	// });
+  openConnectionMonitor(nh, socket);
+  openToolControlTopic(nh, socket);
 
 	console.log('finished registering listeners');
-
-	// 		ocket.on('connect', function(){});
-	// socket.on('event', function(data){});
-	// socket.on('disconnect', function(){});
-
 
 });
 
