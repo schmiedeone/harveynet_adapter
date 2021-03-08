@@ -1,22 +1,172 @@
 #!/usr/bin/env node
+const server = require('http').Server();
+const { Server } = require('socket.io');
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+  },
+});
 
 const rosnodejs = require('rosnodejs');
 const uuidv4 = require('uuid').v4;
 
-var ioClient = require("socket.io-client");
+class HarveyNetAdapter {
+  constructor(start_socket = true, start_ros_node = false, debug_messages = []) {
+    this.start_socket = start_socket;
+    this.start_ros_node = start_ros_node;
+    this.socket = 'NONE';
+    this.node_handle = 'NONE';
+    this.debug_messages = debug_messages;
+    this.socketListeners = 'NONE';
+    this.connectionPublisher = 'NONE';
+    this.controlMessagePublisher = 'NONE';
+  }
+
+  registerSocketHandlers() {
+    if (this.socket !== 'NONE') {
+      this.registerControlMessageListener();
+    }
+  }
+
+  registerControlMessageListener() {
+    // When we receive a message... note, here we need to map the message to a harvey control message
+    const classHandle = this;
+    this.socket.on(`harvey-hmi-control`, function(data){
+      // Object.keys(data)
+      if (classHandle.debug_messages.includes('socket-messages')) {
+        console.log(`harvey-hmi-control: %j`, data);
+      }
+      classHandle.handleControlMessage(data);
+    });
+  }
+
+  registerROSHandlers() {
+    if (this.node_handle !== 'NONE') {
+      this.registerConnectionHandler();
+      this.registerControlMessageHandler();
+    }
+  }
+
+  registerConnectionHandler() {
+    const std_msgs = rosnodejs.require('std_msgs');
+    const boolMsg = std_msgs.msg.Bool;
+    const connectPub = this.node_handle.advertise(`/harvey_controller/hmi_connected`, boolMsg);
+    this.connectionPublisher = connectPub;
+  }
+
+  registerControlMessageHandler() {
+    const hmi_controller = rosnodejs.require('hmi_controller');
+    const harvey_hmi_msg = hmi_controller.msg.harvey_hmi_msg;
+    const pub = this.node_handle.advertise(`/harvey_controller/hmi_controller`, harvey_hmi_msg);
+    this.controlMessagePublisher = pub;
+  }
+
+  handleControlMessage(data) {
+    console.log('data in handler', data);
+    console.log('this.debug_messages', this.debug_messages);
+    if (this.node_handle !== 'NONE' && this.controlMessagePublisher !== 'NONE') {
+      const hmi_controller = rosnodejs.require('hmi_controller');
+      const harvey_hmi_msg = hmi_controller.msg.harvey_hmi_msg;
+      const msg = harvey_hmi_msg();
+
+      if ('increment' in data) {
+        if (this.debug_messages.includes('action_types')) {
+          console.log(`harvey-hmi-control: %j`, 'increment');
+        }
+        this.controlMessagePublisher.publish(getIncrementMessage(msg, data['increment'][0], data['increment'][1]));
+      }
+
+      if ('decrement' in data) {
+        if (this.debug_messages.includes('action_types')) {
+          console.log(`harvey-hmi-control: %j`, 'decrement');
+        }
+        this.controlMessagePublisher.publish(getDecrementMessage(msg, data['decrement'][0], data['decrement'][1]));
+      }
+
+      if ('set' in data) {
+        if (this.debug_messages.includes('action_types')) {
+          console.log(`harvey-hmi-control: %j`, 'set');
+        }
+        this.controlMessagePublisher.publish(getSetMessage(msg, data['set'][0]));
+      }
+
+      if ('unset' in data) {
+        if (this.debug_messages.includes('action_types')) {
+          console.log(`harvey-hmi-control: %j`, 'unset');
+        }
+        this.controlMessagePublisher.publish(getUnsetMessage(msg, data['unset'][0]));
+      }
+    } else {
+      console.warn(`Skipping control message publishing: \n node_handle: ${this.node_handle}  \n controlMessagePublisher: ${this.controlMessagePublisher}`);
+    }
+  }
+
+  handleConnectionMessage(message) {
+    if (this.node_handle !== 'NONE' && this.connectionPublisher !== 'NONE') {
+      this.connectionPublisher.publish(message);
+    }
+  }
+
+}
 
 var Audit = require('entity-diff');
 
 let requiredEnv = [
   'SOCKET_HOST'
 ];
-let unsetEnv = requiredEnv.filter((env) => !(typeof process.env[env] !== 'undefined'));
+// let unsetEnv = requiredEnv.filter((env) => !(typeof process.env[env] !== 'undefined'));
 
-if (unsetEnv.length > 0) {
-  throw new Error("Required ENV variables are not set: [" + unsetEnv.join(', ') + "]");
+// if (unsetEnv.length > 0) {
+//  throw new Error("Required ENV variables are not set: [" + unsetEnv.join(', ') + "]");
+// }
+const harveyNetAdapter = new HarveyNetAdapter(true, true, ['action_types', 'socket-messages'])
+
+const START_SOCKET = true;
+const START_ROS = true;
+
+if (START_ROS) {
+  // init adapter node
+  rosnodejs.initNode('/adapter', {onTheFly: true})
+  .then(() => {
+  	console.log('ros node is initiated');
+  	const nh = rosnodejs.nh;
+    harveyNetAdapter.node_handle = nh;
+    harveyNetAdapter.registerROSHandlers();
+  	// console.log('finished registering listeners');
+    // console.log(harveyNetAdapter);
+  });
 }
-const socket_host = process.env.SOCKET_HOST
-const ENDPOINT = `http://${socket_host}:3000`
+
+var counter = 0;
+while (START_ROS && harveyNetAdapter.node_handle !== 'NONE' && counter < 10) {
+  setTimeout(function() {
+    counter = counter +1;
+    console.log('waiting');
+  }, 200
+  );
+  if (counter === 10) {
+    throw 'Timeout reached and node_handle not set';
+  }
+}
+
+// Instantiate the socket and listen
+io.on('connection', socket => {
+  harveyNetAdapter.socket = socket;
+  harveyNetAdapter.handleConnectionMessage({data: true});
+  harveyNetAdapter.registerSocketHandlers();
+  if (harveyNetAdapter.debug_messages.includes('classes')) {
+    console.log(harveyNetAdapter);
+  }
+  socket.on("disconnect", (reason) => {
+    harveyNetAdapter.socket = 'NONE';
+    harveyNetAdapter.handleConnectionMessage({data: false});
+    if (harveyNetAdapter.debug_messages.includes('classes')) {
+      console.log(harveyNetAdapter);
+    }
+  });
+});
+
+// Instantiate the ROS stuff if needed
 
 /*
 This produces a list of changes like this: [{"key":"engine_off","from":0,"to":1}]
@@ -323,43 +473,6 @@ function getUnsetMessage(msg, channel) {
 	}
 }
 
-function openToolControlTopic(nh, socket) {
-	const harvey_can = rosnodejs.require('harvey_can');
-	const harvey_joy_msg = harvey_can.msg.harvey_joy_msg;
-	// const StringMsg = std_msgs.msg.String;
-	const pub = nh.advertise(`/harvey_controller/hmi_controller`, harvey_joy_msg);
-
-	// When we receive a message... note, here we need to map the message to a harvey control message
-	socket.on(`harvey-hmi-control`, function(data){
-		// Object.keys(data)
-		console.log(`harvey-hmi-control: %j`, data);
-		const msg = new harvey_joy_msg();
-
-		if ('increment' in data) {
-			pub.publish(getIncrementMessage(msg, data['increment'][0], data['increment'][1]));
-		}
-
-		if ('decrement' in data) {
-			console.log(`harvey-hmi-control: %j`, 'decrement');
-			pub.publish(getDecrementMessage(msg, data['decrement'][0], data['decrement'][1]));
-		}
-
-		if ('set' in data) {
-			console.log(`harvey-hmi-control: %j`, 'set');
-			pub.publish(getSetMessage(msg, data['set'][0]));
-		}
-
-		if ('unset' in data) {
-			console.log(`harvey-hmi-control: %j`, 'unset');
-			pub.publish(getUnsetMessage(msg, data['unset'][0]));
-		}
-	});
-}
-
-function initState(nh, socket) {
-
-}
-
 function openMonitorTopic(nh, socket) {
 	nh.subscribe('/harvey_controller/set_state', 'harvey_can/harvey_joy_msg', newMsg => {
 		nh.getParam('previous_state')
@@ -371,6 +484,12 @@ function openMonitorTopic(nh, socket) {
 	});
 }
 
+const port = process.env.PORT || 3001;
+server.listen(port, () => {
+  console.log('harvey-socket-io-server listening on port [3001]...');
+});
+
+
 // Removing this for now because it gets a bit too complicated otherwise
 // function openConnectionErrorHandler(socket) {
 //   socket.on('connect_error', (error) => {
@@ -378,63 +497,6 @@ function openMonitorTopic(nh, socket) {
 //     // server_pub.publish({data: false});
 //   });
 // }
-
-function openConnectionMonitor(nh, socket) {
-  const std_msgs = rosnodejs.require('std_msgs');
-	const boolMsg = std_msgs.msg.Bool;
-
-  const server_pub = nh.advertise(`/harvey_controller/socket_server_connected`, boolMsg);
-  const hmi_pub = nh.advertise(`/harvey_controller/hmi_connected`, boolMsg);
-
-  socket.on('connect', () => {
-    // Display a connected message
-    console.log("Connected to server");
-    server_pub.publish({data: true});
-  });
-
-  socket.on('disconnect', () => {
-    console.log("Disconnected from server");
-    server_pub.publish({data: false});
-  });
-
-  socket.on('harvey-hmi-connection', (data) => {
-    if (data['connected'] == true) {
-      console.log("Connection between HMI and server established");
-      hmi_pub.publish({data: true});
-    } else {
-      console.log("Connection between HMI and server lost");
-      hmi_pub.publish({data: false});
-    }
-  });
-
-}
-
-console.log('starting ros node');
-
-// init adapter node
-rosnodejs.initNode('/adapter', {onTheFly: true})
-.then(() => {
-
-	console.log('ros node is initiated');
-
-	const nh = rosnodejs.nh;
-	socket = ioClient(ENDPOINT, {
-    // reconnectionAttempts: 2,
-    query: {
-      name: "adapter",
-      type: 'on-robot-adapter'
-    }
-  });
-
-  // Removing this for now because it gets a bit too complicated otherwise
-  // openConnectionErrorHandler(socket);
-
-  openConnectionMonitor(nh, socket);
-  openToolControlTopic(nh, socket);
-
-	console.log('finished registering listeners');
-
-});
 
 // Mistakes I found:
 // I need to use 'on the fly' mode so that I am no longer required to do 'catkin_make'

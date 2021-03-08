@@ -1,0 +1,16 @@
+<package format="2">
+  <name>harveynet_adapter</name>
+  <version>0.0.0</version>
+  <description>
+  This package runs a node that starts a websocket through which the HMI
+  communicates with our ROS system.
+  </description>
+  <maintainer email="theunis@schmiede.one">Theunis Botha</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>std_msgs</build_depend>
+
+  <exec_depend>std_msgs</exec_depend>
+</package>
