@@ -3,6 +3,7 @@ project(harveynet_adapter)
 
 find_package(catkin REQUIRED COMPONENTS
   std_msgs
+  hmi_controller
 )
 
 catkin_package()
