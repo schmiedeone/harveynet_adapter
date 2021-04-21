@@ -698,7 +698,7 @@ function packStatusMessage(statusMessage) {
       "min_limit": 255,
       "max_limit": 0,
       "scaling_factor": (100/255),
-      "actual": statusMessage.track_maxpwm,
+      "actual": ((statusMessage.left_track_curpwm + statusMessage.right_track_curpwm) / 2),
       "unit": "%",
       "disabled": false
     },
