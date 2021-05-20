@@ -7,7 +7,6 @@ const io = new Server(server, {
   },
 });
 
-const rosnodejs = require('rosnodejs');
 const uuidv4 = require('uuid').v4;
 
 class HarveyNetAdapter {
@@ -20,7 +19,6 @@ class HarveyNetAdapter {
     this.socketListeners = 'NONE';
     this.connectionPublisher = 'NONE';
     this.controlMessagePublisher = 'NONE';
-    this.publishCounter = 1;
   }
 
   registerSocketHandlers() {
@@ -45,7 +43,6 @@ class HarveyNetAdapter {
     if (this.node_handle !== 'NONE') {
       this.registerConnectionHandler();
       this.registerControlMessageHandler();
-      this.registerStatusMessageHandler();
     }
   }
 
@@ -63,29 +60,8 @@ class HarveyNetAdapter {
     this.controlMessagePublisher = pub;
   }
 
-  registerStatusMessageHandler() {
-    this.node_handle.subscribe('/harvey_controller/status', 'harvey_controller/harvey_status', statusMessage => {
-      this.handleStatusMessage(statusMessage)
-    });
-  }
-
-  handleStatusMessage(statusMessage) {
-    if(this.socket !== 'NONE') {
-      if (this.publishCounter % 4 === 0) {
-        this.socket.emit('harvey-hmi-monitor', packStatusMessage(statusMessage))
-        this.publishCounter = 1;
-      } else if (this.publishCounter % 2 === 0) {
-        this.socket.emit('harvey-hmi-monitor', packLightWeightMessage(statusMessage))
-        this.publishCounter = this.publishCounter + 1;
-      } else {
-        this.publishCounter = this.publishCounter + 1;
-      }
-    } else {
-      console.log("Skipping emit, socket is not defined");
-    }
-  }
-
   handleControlMessage(data) {
+    console.log('data in handler', data);
     console.log('this.debug_messages', this.debug_messages);
     if (this.node_handle !== 'NONE' && this.controlMessagePublisher !== 'NONE') {
       const hmi_controller = rosnodejs.require('hmi_controller');
@@ -119,20 +95,6 @@ class HarveyNetAdapter {
         }
         this.controlMessagePublisher.publish(getUnsetMessage(msg, data['unset'][0]));
       }
-
-      if ('load-file' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'unset');
-        }
-        this.controlMessagePublisher.publish(getLoadFileMessage(msg, data['load-file'][0]));
-      }
-
-      if ('save-file' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'unset');
-        }
-        this.controlMessagePublisher.publish(getSaveFileMessage(msg, data['save-file'][0]));
-      }
     } else {
       console.warn(`Skipping control message publishing: \n node_handle: ${this.node_handle}  \n controlMessagePublisher: ${this.controlMessagePublisher}`);
     }
@@ -156,12 +118,13 @@ let requiredEnv = [
 // if (unsetEnv.length > 0) {
 //  throw new Error("Required ENV variables are not set: [" + unsetEnv.join(', ') + "]");
 // }
-const harveyNetAdapter = new HarveyNetAdapter(true, true, ['action_types', 'socket-messages'])
+const harveyNetAdapter = new HarveyNetAdapter(true, process.env.START_ROS === "true", ['action_types', 'socket-messages'])
 
 const START_SOCKET = true;
-const START_ROS = true;
+const START_ROS = process.env.START_ROS === "true";
 
 if (START_ROS) {
+  const rosnodejs = require('rosnodejs');
   // init adapter node
   rosnodejs.initNode('/adapter', {onTheFly: true})
   .then(() => {
@@ -169,6 +132,8 @@ if (START_ROS) {
   	const nh = rosnodejs.nh;
     harveyNetAdapter.node_handle = nh;
     harveyNetAdapter.registerROSHandlers();
+  	// console.log('finished registering listeners');
+    // console.log(harveyNetAdapter);
   });
 }
 
@@ -186,23 +151,19 @@ while (START_ROS && harveyNetAdapter.node_handle !== 'NONE' && counter < 10) {
 
 // Instantiate the socket and listen
 io.on('connection', socket => {
-  if (harveyNetAdapter.socket === 'NONE') {
-    harveyNetAdapter.socket = socket;
-    harveyNetAdapter.handleConnectionMessage({data: true});
-    harveyNetAdapter.registerSocketHandlers();
+  harveyNetAdapter.socket = socket;
+  harveyNetAdapter.handleConnectionMessage({data: true});
+  harveyNetAdapter.registerSocketHandlers();
+  if (harveyNetAdapter.debug_messages.includes('classes')) {
+    console.log(harveyNetAdapter);
+  }
+  socket.on("disconnect", (reason) => {
+    harveyNetAdapter.socket = 'NONE';
+    harveyNetAdapter.handleConnectionMessage({data: false});
     if (harveyNetAdapter.debug_messages.includes('classes')) {
       console.log(harveyNetAdapter);
     }
-    socket.on("disconnect", (reason) => {
-      harveyNetAdapter.socket = 'NONE';
-      harveyNetAdapter.handleConnectionMessage({data: false});
-      if (harveyNetAdapter.debug_messages.includes('classes')) {
-        console.log(harveyNetAdapter);
-      }
-    });
-  } else {
-    console.log('Ignoring socket connection as one is already being assigned')
-  }
+  });
 });
 
 // Instantiate the ROS stuff if needed
@@ -452,73 +413,11 @@ function getSetMessage(msg, channel) {
 			...{'track_width': -1}
 		};
 		break;
-    case 'lane_hold_assist':
-    return {
-			...msg,
-			...{'toggle_lanefollow_mode': true}
-		};
-		break;
-    case 'soil_flow_track_assist':
-    return {
-			...msg,
-			...{'toggle_soilflow_track_control': true}
-		};
-		break;
-    case 'soil_flow_belt_assist':
-    return {
-			...msg,
-			...{'toggle_soilflow_belt_control': true}
-		};
-		break;
-    case 'height_assist':
-    return {
-			...msg,
-			...{'toggle_intake_height_control': true}
-		};
-		break;
-    case 'speed_assist':
-    return {
-			...msg,
-			...{'toggle_speed_control': true}
-		};
-		break;
-    case 'hmi_active':
-    return {
-			...msg,
-			...{'toggle_hmi_mode': true}
-		};
-		break;
-    case 'machine_paused':
-    return {
-			...msg,
-			...{'pause_operation': true}
-		};
-		break;
 		default:
 		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
 }
-
-// bool toggle_lanefollow_mode
-// bool toggle_soilflow_track_control
-// bool toggle_soilflow_belt_control
-// bool toggle_intake_height_control
-// bool toggle_speed_control
-//
-// bool engine_on
-// bool engine_off
-// bool load_config
-// bool save_config
-// string config_filepath
-// int16 track_speed_max_increment
-// int8 front_belt_rpm_increment
-// int8 back_belt_rpm_increment
-// int8 dammer_height
-// int8 pallet_height
-// int8 pallet_tilt
-// int8 track_width
-
 function getUnsetMessage(msg, channel) {
 	switch (channel) {
 		case 'engine_on':
@@ -568,269 +467,38 @@ function getUnsetMessage(msg, channel) {
 			...{'track_width': 0}
 		};
 		break;
-    case 'lane_hold_assist':
-    return {
-			...msg,
-			...{'toggle_lanefollow_mode': true}
-		};
-		break;
-    case 'soil_flow_track_assist':
-    return {
-			...msg,
-			...{'toggle_soilflow_track_control': true}
-		};
-		break;
-    case 'soil_flow_belt_assist':
-    return {
-			...msg,
-			...{'toggle_soilflow_belt_control': true}
-		};
-		break;
-    case 'height_assist':
-    return {
-			...msg,
-			...{'toggle_intake_height_control': true}
-		};
-		break;
-    case 'speed_assist':
-    return {
-			...msg,
-			...{'toggle_speed_control': true}
-		};
-		break;
-    case 'hmi_active':
-    return {
-			...msg,
-			...{'toggle_hmi_mode': true}
-		};
-		break;
-    case 'machine_paused':
-    return {
-			...msg,
-			...{'pause_operation': false}
-		};
-		break;
 		default:
 		throw `Channel - ${channel} - not recognized!`;
 		break;
 	}
 }
-function getLoadFileMessage(msg, name) {
-  return {
-    ...msg,
-    ...{'load_config': true, 'config_filepath': name}
-  };
-}
-function getSaveFileMessage(msg, name) {
-  return {
-    ...msg,
-    ...{'save_config': true, 'config_filepath': name}
-  };
-}
 
-function packLightWeightMessage(statusMessage) {
-  return {
-  "hmi_active": statusMessage.hmi_mode,
-  "machine_paused": statusMessage.paused || false,
-  "toggle_modes": [
-    // If you are ready to build it, you can actually hide items that are in the design but not in this list
-    {
-      "id": "lane_hold_assist",
-      "display_name": "Follow Lane",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.lanefollow_mode === true),
-      "low_state": (statusMessage.lanefollow_mode !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_belt_assist",
-      "display_name": "SFC - Belt",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.soilflow_belt_control === true),
-      "low_state": (statusMessage.soilflow_belt_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_track_assist",
-      "display_name": "SFC - Track",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.soilflow_track_control === true),
-      "low_state": (statusMessage.soilflow_track_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "height_assist",
-      "display_name": "Hold Height",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.intake_height_control === true),
-      "low_state": (statusMessage.intake_height_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "speed_assist",
-      "display_name": "Hold Speed",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.speed_control === true),
-      "low_state": (statusMessage.speed_control !== true),
-      "disabled": false
-    }
-  ]
-}
-}
-
-function packStatusMessage(statusMessage) {
-  return {
-  "hmi_active": statusMessage.hmi_mode,
-  "machine_paused": statusMessage.paused || false,
-  "error_message": null,
-  "info_message": null,
-  "warning_message": null,
-  "machine_tools": [
-    // If you are ready to build it, you can actually hide items that are in the design but not in this list
-    {
-      "id": "track_speed",
-      "display_name": "Track Speed",
-      "type": "ANALOG",
-      "target": statusMessage.track_maxpwm,
-      "min_limit": 255,
-      "max_limit": 0,
-      "scaling_factor": (100/255),
-      "actual": ((statusMessage.left_track_curpwm + statusMessage.right_track_curpwm) / 2),
-      "unit": "%",
-      "disabled": false
-    },
-    {
-      "id": "back_belt",
-      "display_name": "Sorting Belt",
-      "type": "ANALOG",
-      "target": statusMessage.back_belt_pwm,
-      "min_limit": 255,
-      "max_limit": 0,
-      "scaling_factor": (100/255),
-      "actual": statusMessage.back_belt_curpwm,
-      "unit": "%",
-      "disabled": false
-    },
-    {
-      "id": "front_belt",
-      "display_name": "Sieving Belt",
-      "type": "ANALOG",
-      "target": statusMessage.front_belt_pwm,
-      "min_limit": 255,
-      "max_limit": 0,
-      "scaling_factor": (100/255),
-      "actual": statusMessage.front_belt_curpwm,
-      "unit": "%",
-      "disabled": false
-    },
-    {
-      "id": "track_width",
-      "display_name": "Track Width",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.track_width_curpwm > 0),
-      "low_state": (statusMessage.track_width_curpwm < 0),
-      "disabled": false
-    },
-    {
-      "id": "intake_height",
-      "display_name": "Intake Height",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.dammer_height_curpwm > 0),
-      "low_state": (statusMessage.dammer_height_curpwm < 0),
-      "disabled": false
-    },
-    {
-      "id": "pallet_height",
-      "display_name": "Pallet Height",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.pallet_height_curpwm > 0),
-      "low_state": (statusMessage.pallet_height_curpwm < 0),
-      "disabled": false
-    },
-    {
-      "id": "pallet_tilt",
-      "display_name": "Pallet Tilt",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.pallet_tilt_curpwm > 0),
-      "low_state": (statusMessage.pallet_tilt_curpwm < 0),
-      "disabled": false
-    }
-  ],
-  "home": [
-    // {
-    //   "id": "on_active",
-    //   "display_name": "ON",
-    //   // Note that in the future some of these tri-states have the potential
-    //   // to become analog states like the ones above
-    //   "type": "BOOLEAN",
-    //   // This can be used to highlight the button or something to show that the
-    //   // cylinders are moving
-    //   "value": true | false
-    // },
-    // {
-    //   "id": "off_active",
-    //   "display_name": "OFF",
-    //   // Note that in the future some of these tri-states have the potential
-    //   // to become analog states like the ones above
-    //   "type": "BOOLEAN",
-    //   // This can be used to highlight the button or something to show that the
-    //   // cylinders are moving
-    //   "value": true | false
-    // }
-  ],
-  "toggle_modes": [
-    // If you are ready to build it, you can actually hide items that are in the design but not in this list
-    {
-      "id": "lane_hold_assist",
-      "display_name": "Follow Lane",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.lanefollow_mode === true),
-      "low_state": (statusMessage.lanefollow_mode !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_belt_assist",
-      "display_name": "SFC - Belt",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.soilflow_belt_control === true),
-      "low_state": (statusMessage.soilflow_belt_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_track_assist",
-      "display_name": "SFC - Track",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.soilflow_track_control === true),
-      "low_state": (statusMessage.soilflow_track_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "height_assist",
-      "display_name": "Hold Height",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.intake_height_control === true),
-      "low_state": (statusMessage.intake_height_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "speed_assist",
-      "display_name": "Hold Speed",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.speed_control === true),
-      "low_state": (statusMessage.speed_control !== true),
-      "disabled": false
-    }
-  ]
-}
+function openMonitorTopic(nh, socket) {
+	nh.subscribe('/harvey_controller/set_state', 'harvey_can/harvey_joy_msg', newMsg => {
+		nh.getParam('previous_state')
+		.then((val) => {
+			changes = detectChanges(oldMsg, newMsg);
+			nh.setParam('previous_state', msg);
+			socket.emit(`harvey-hmi-monitor`, packMonitorChanges(changes));
+		});
+	});
 }
 
 const port = process.env.PORT || 3001;
 server.listen(port, () => {
-  console.log(`harvey-socket-io-server listening on port [${port}]...`);
+  console.log('harvey-socket-io-server listening on port [3001]...');
 });
+
+
+// Removing this for now because it gets a bit too complicated otherwise
+// function openConnectionErrorHandler(socket) {
+//   socket.on('connect_error', (error) => {
+//     console.log(error);
+//     // server_pub.publish({data: false});
+//   });
+// }
+
+// Mistakes I found:
+// I need to use 'on the fly' mode so that I am no longer required to do 'catkin_make'
+// I need to still test if this works without sourcing the workspace at all
+// I cannot just send a partial message, I actually need to use the message constructor, and send the message class

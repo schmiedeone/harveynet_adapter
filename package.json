@@ -3,7 +3,9 @@
   "version": "0.0.4",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "init": "chmod +x ./scripts/hmi_adapter_node.js",
+    "start": "START_ROS=false node ./scripts/hmi_adapter_node.js"
   },
   "dependencies": {
     "entity-diff": "^1.0.6",
