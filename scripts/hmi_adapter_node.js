@@ -618,8 +618,8 @@ function packLightWeightMessage(statusMessage) {
       "id": "machine_lights",
       "display_name": "Machine Lights",
       "type": "TRI-STATE",
-      "high_state": (statusMessage.machine_lights === true),
-      "low_state": (statusMessage.machine_lights !== true),
+      "high_state": (statusMessage.machine_lights_on === true),
+      "low_state": (statusMessage.machine_lights_on !== true),
       "disabled": false
     }
   ],
@@ -755,8 +755,8 @@ function packStatusMessage(statusMessage) {
       "id": "machine_lights",
       "display_name": "Machine Lights",
       "type": "TRI-STATE",
-      "high_state": (statusMessage.machine_lights === true),
-      "low_state": (statusMessage.machine_lights !== true),
+      "high_state": (statusMessage.machine_lights_on === true),
+      "low_state": (statusMessage.machine_lights_on !== true),
       "disabled": false
     }
     // {
