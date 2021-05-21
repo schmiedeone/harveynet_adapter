@@ -632,6 +632,16 @@ function packLightWeightMessage(statusMessage) {
   return {
   "hmi_active": statusMessage.hmi_mode,
   "machine_paused": statusMessage.paused || false,
+  "home": [
+    {
+      "id": "machine_lights",
+      "display_name": "Machine Lights",
+      "type": "TRI-STATE",
+      "high_state": (statusMessage.machine_lights === true),
+      "low_state": (statusMessage.machine_lights !== true),
+      "disabled": false
+    }
+  ],
   "toggle_modes": [
     // If you are ready to build it, you can actually hide items that are in the design but not in this list
     {
@@ -760,6 +770,14 @@ function packStatusMessage(statusMessage) {
     }
   ],
   "home": [
+    {
+      "id": "machine_lights",
+      "display_name": "Machine Lights",
+      "type": "TRI-STATE",
+      "high_state": (statusMessage.machine_lights === true),
+      "low_state": (statusMessage.machine_lights !== true),
+      "disabled": false
+    }
     // {
     //   "id": "on_active",
     //   "display_name": "ON",
