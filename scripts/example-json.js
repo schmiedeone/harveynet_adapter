@@ -244,6 +244,23 @@
 
       "value": true | false
 
+    },
+    {
+
+      "id": "machine_lights",
+
+      "display_name": "Machine Lights",
+
+      "type": "TRI-STATE",
+
+      // If both states are false consider it to be unknown and show a loading state
+
+      "high_state": true | false,
+
+      "low_state": true | false,
+
+      "disabled": true | false
+
     }
 
   ]
@@ -329,26 +346,6 @@
       "id": "speed_assist",
 
       "display_name": "Hold Speed",
-
-      "type": "TRI-STATE",
-
-      // If both states are false consider it to be unknown and show a loading state
-
-      "high_state": true | false,
-
-      "low_state": true | false,
-
-      "disabled": true | false
-
-    }
-
-    ,
-
-    {
-
-      "id": "machine_lights",
-
-      "display_name": "Machine Lights",
 
       "type": "TRI-STATE",
 
