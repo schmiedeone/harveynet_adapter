@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 const server = require('http').Server();
 const { Server } = require('socket.io');
+const rosnodejs = require('rosnodejs');
+
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -162,7 +164,6 @@ const START_SOCKET = true;
 const START_ROS = process.env.START_ROS === "true";
 
 if (START_ROS) {
-  const rosnodejs = require('rosnodejs');
   // init adapter node
   rosnodejs.initNode('/adapter', {onTheFly: true})
   .then(() => {
