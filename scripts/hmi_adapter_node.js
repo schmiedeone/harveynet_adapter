@@ -161,10 +161,10 @@ let requiredEnv = [
 // if (unsetEnv.length > 0) {
 //  throw new Error("Required ENV variables are not set: [" + unsetEnv.join(', ') + "]");
 // }
-const harveyNetAdapter = new HarveyNetAdapter(true, process.env.START_ROS === "true", ['action_types', 'socket-messages'])
+const START_ROS = (process.env.START_ROS === "true");
+const harveyNetAdapter = new HarveyNetAdapter(true, START_ROS, ['action_types', 'socket-messages'])
 
 const START_SOCKET = true;
-const START_ROS = process.env.START_ROS === "true";
 
 if (START_ROS) {
   // init adapter node
