@@ -489,6 +489,12 @@ function getSetMessage(msg, channel) {
 			...msg,
 			...{'toggle_hmi_mode': true}
 		};
+    break;
+    case 'machine_lights':
+    return {
+			...msg,
+			...{'toggle_machine_lights': false}
+		};
 		break;
     case 'machine_paused':
     return {
@@ -584,6 +590,12 @@ function getUnsetMessage(msg, channel) {
     return {
 			...msg,
 			...{'toggle_hmi_mode': true}
+		};
+    break;
+    case 'machine_lights':
+    return {
+			...msg,
+			...{'toggle_machine_lights': true}
 		};
 		break;
     case 'machine_paused':
