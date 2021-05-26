@@ -51,6 +51,7 @@ class HarveyNetAdapter {
   }
 
   registerConnectionHandler() {
+    console.log("Registering Connection Handler");
     const std_msgs = rosnodejs.require('std_msgs');
     const boolMsg = std_msgs.msg.Bool;
     const connectPub = this.node_handle.advertise(`/harvey_controller/hmi_connected`, boolMsg);
@@ -58,6 +59,7 @@ class HarveyNetAdapter {
   }
 
   registerControlMessageHandler() {
+    console.log("Registering Connection Control Message Handler");
     const hmi_controller = rosnodejs.require('hmi_controller');
     const harvey_hmi_msg = hmi_controller.msg.harvey_hmi_msg;
     const pub = this.node_handle.advertise(`/harvey_controller/hmi_controller`, harvey_hmi_msg);
@@ -65,6 +67,7 @@ class HarveyNetAdapter {
   }
 
   registerStatusMessageHandler() {
+    console.log("Registering Connection Status Message Handler");
     this.node_handle.subscribe('/harvey_controller/status', 'harvey_controller/harvey_status', statusMessage => {
       this.handleStatusMessage(statusMessage)
     });
