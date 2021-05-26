@@ -692,7 +692,7 @@ function packStatusMessage(statusMessage) {
   return {
   "hmi_active": statusMessage.hmi_mode,
   "machine_paused": statusMessage.paused || false,
-  "error_message": null,
+  "error_message": statusMessage.error_string,
   "info_message": null,
   "warning_message": null,
   "machine_tools": [
