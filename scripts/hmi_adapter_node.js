@@ -496,7 +496,7 @@ function getSetMessage(msg, channel) {
     case 'machine_lights':
     return {
 			...msg,
-			...{'toggle_machine_lights': false}
+			...{'toggle_machine_lights': true}
 		};
 		break;
     case 'machine_paused':
