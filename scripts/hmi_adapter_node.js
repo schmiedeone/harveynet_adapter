@@ -693,8 +693,8 @@ function packStatusMessage(statusMessage) {
   "hmi_active": statusMessage.hmi_mode,
   "machine_paused": statusMessage.paused || false,
   "error_message": statusMessage.error_string,
-  "info_message": null,
-  "warning_message": null,
+  "warning_message": statusMessage.warn_string,
+  "info_message": statusMessage.info_string, // TODO deal with empty strings
   "machine_tools": [
     // If you are ready to build it, you can actually hide items that are in the design but not in this list
     {
