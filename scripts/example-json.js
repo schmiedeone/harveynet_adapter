@@ -268,6 +268,23 @@
   "toggle_modes": [
 
     // If you are ready to build it, you can actually hide items that are in the design but not in this list
+    {
+
+      "id": "default_automation",
+
+      "display_name": "Default Automatic Mode",
+
+      "type": "TRI-STATE",
+
+      // If both states are false consider it to be unknown and show a loading state
+
+      "high_state": true | false,
+
+      "low_state": true | false,
+
+      "disabled": true | false
+
+    },
 
     {
 
