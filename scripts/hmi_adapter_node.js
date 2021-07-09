@@ -60,69 +60,929 @@ class HarveyNetAdapter {
 
   registerControlMessageHandler() {
     console.log("Registering Connection Control Message Handler");
-    const hmi_controller = rosnodejs.require('hmi_controller');
-    const harvey_hmi_msg = hmi_controller.msg.harvey_hmi_msg;
+    const harvey_controller = rosnodejs.require('harvey_controller');
+    const harvey_hmi_msg = harvey_controller.msg.harvey_hmi_msg;
     const pub = this.node_handle.advertise(`/harvey_controller/hmi_controller`, harvey_hmi_msg);
     this.controlMessagePublisher = pub;
   }
 
   registerStatusMessageHandler() {
     console.log("Registering Connection Status Message Handler");
-    this.node_handle.subscribe('/harvey_controller/status', 'harvey_controller/harvey_status', statusMessage => {
+    this.node_handle.subscribe('/harvey_controller/hmi_controller_state', 'harvey_controller/hmi_controller_state', statusMessage => {
       this.handleStatusMessage(statusMessage)
     });
   }
 
   handleStatusMessage(statusMessage) {
     if(this.socket !== 'NONE') {
-      if (this.publishCounter % 4 === 0) {
-        this.socket.emit('harvey-hmi-monitor', packStatusMessage(statusMessage))
-        this.publishCounter = 1;
-      } else if (this.publishCounter % 2 === 0) {
-        this.socket.emit('harvey-hmi-monitor', packLightWeightMessage(statusMessage))
-        this.publishCounter = this.publishCounter + 1;
-      } else {
-        this.publishCounter = this.publishCounter + 1;
-      }
+      this.socket.emit('harvey-hmi-monitor', packStatusMessage(statusMessage))
     } else {
       console.log("Skipping emit, socket is not defined");
     }
   }
 
+  handleIncrementMessage(data) {
+    switch (data['increment'][0]) {
+
+  		case 'track_speed_max':
+
+        const trackSpeedClient = harveyNetAdapter.node_handle.serviceClient(
+          '/increment_track_speed',
+          'harvey_controller/increment'
+        );
+
+        var result = trackSpeedClient.call({
+          request_id: "one",
+          increment_by: data['increment'][1],
+          channel: data['increment'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "track_speed",
+              "display_name": "Track Speed",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+
+  		break;
+  		case 'front_belt_rpm':
+
+        const frontBeltClient = harveyNetAdapter.node_handle.serviceClient(
+          '/increment_front_belt',
+          'harvey_controller/increment'
+        );
+
+        var result = frontBeltClient.call({
+          request_id: "one",
+          increment_by: data['increment'][1],
+          channel: data['increment'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "front_belt",
+              "display_name": "Front Belt",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+  		break;
+
+  		case 'back_belt_rpm':
+
+        const backBeltClient = harveyNetAdapter.node_handle.serviceClient(
+          '/increment_front_belt',
+          'harvey_controller/increment'
+        );
+
+        var result = backBeltClient.call({
+          request_id: "one",
+          increment_by: data['increment'][1],
+          channel: data['increment'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "back_belt",
+              "display_name": "Back Belt",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+  		break;
+  		default:
+  		throw `Channel - ${channel} - not recognized!`;
+  		break;
+  	}
+  }
+
+  handleDecrementMessage(data) {
+    switch (data['decrement'][0]) {
+
+  		case 'track_speed_max':
+
+        const trackSpeedClient = harveyNetAdapter.node_handle.serviceClient(
+          '/decrement_track_speed',
+          'harvey_controller/decrement'
+        );
+
+        var result = trackSpeedClient.call({
+          request_id: "one",
+          decrement_by: data['decrement'][1],
+          channel: data['decrement'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "track_speed",
+              "display_name": "Track Speed",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+
+  		break;
+  		case 'front_belt_rpm':
+
+        const frontBeltClient = harveyNetAdapter.node_handle.serviceClient(
+          '/decrement_front_belt',
+          'harvey_controller/decrement'
+        );
+
+        var result = frontBeltClient.call({
+          request_id: "one",
+          decrement_by: data['decrement'][1],
+          channel: data['decrement'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "front_belt",
+              "display_name": "Front Belt",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+  		break;
+
+  		case 'back_belt_rpm':
+
+        const backBeltClient = harveyNetAdapter.node_handle.serviceClient(
+          '/decrement_front_belt',
+          'harvey_controller/decrement'
+        );
+
+        var result = backBeltClient.call({
+          request_id: "one",
+          decrement_by: data['decrement'][1],
+          channel: data['decrement'][0]
+        })
+        .then((result) => {
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_tools": [{
+              "id": "back_belt",
+              "display_name": "Back Belt",
+              "type": "ANALOG",
+              "target": result.new_value,
+              "min_limit": 255,
+              "max_limit": 0,
+              "scaling_factor": (100/255),
+              // "actual": 0, I think this is optional
+              "unit": "%",
+              "disabled": false
+            }]
+          })
+
+        })
+        .catch((error) => {
+          console.error('error', error);
+        });
+
+  		break;
+  		default:
+  		throw `Channel - ${channel} - not recognized!`;
+  		break;
+  	}
+  }
+
+  handleSetTriState(data) {
+    console.log("handleSetTriState");
+    switch (data['set'][0]) {
+      case 'default_automation':
+
+        const autoMaticModeClient = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_default_automatic_mode',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "default_automation",
+            "display_name": "Default Automation",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = autoMaticModeClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "default_automation"
+        })
+        .then((result) => {
+          console.log("result - handleSetTriState - default_automation : ", result);
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "default_automation",
+              "display_name": "Lane Hold Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+
+  		break;
+
+      case 'lane_hold_assist':
+
+        const laneHoldClient = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_lane_hold_assist',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "lane_hold_assist",
+            "display_name": "Lane Hold Assist",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = laneHoldClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "lane_hold_assist"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "lane_hold_assist",
+              "display_name": "Lane Hold Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+
+  		break;
+      case 'soil_flow_track_assist':
+
+        const soilFlowTrackAssist = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_soil_flow_track_assist',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "soil_flow_track_assist",
+            "display_name": "Soil-Flow Track Assist",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = soilFlowTrackAssist.call({
+          request_id: "one",
+          set_to: true,
+          channel: "soil_flow_track_assist"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "soil_flow_track_assist",
+              "display_name": "Soil-Flow Track Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+
+  		break;
+      case 'soil_flow_belt_assist':
+        throw `Belt based soil flow control not implimented`;
+  		break;
+      case 'height_assist':
+        const heightHoldClient = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_height_assist',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "height_assist",
+            "display_name": "Height Assist",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = heightHoldClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "height_assist"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "height_assist",
+              "display_name": "Height Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+  		break;
+      case 'speed_assist':
+        throw `Speed assist not implimented`;
+  		break;
+      case 'hmi_active':
+
+        console.log("activate HMI")
+
+        const hmiClient = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_hmi',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "hmi_active",
+            "display_name": "HMI",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = hmiClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "hmi_active"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "hmi_active",
+              "display_name": "HMI",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+      break;
+      case 'machine_lights':
+        const machineLightsClient = harveyNetAdapter.node_handle.serviceClient(
+          '/activate_machine_lights',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "machine_lights",
+            "display_name": "Machine Lights",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = machineLightsClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "machine_lights"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "machine_lights",
+              "display_name": "Machine Lights",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+      break;
+      case 'machine_paused':
+        const machinePause = harveyNetAdapter.node_handle.serviceClient(
+          '/pause_machine',
+          'harvey_controller/set_boolean'
+        );
+
+        var result = machinePause.call({
+          request_id: "one",
+          set_to: false,
+          channel: "machine_paused"
+        })
+        .then((result) => {
+
+          console.log("machine pausing done");
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_paused": result.new_value
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+  		break;
+  		default:
+  		throw `Channel - ${channel} - not a tri-state channel!`;
+  		break;
+  	}
+
+  }
+
+  handleUnsetTriState(data) {
+    console.log("data", data);
+    switch (data['unset'][0]) {
+
+      case 'default_automation':
+
+        const autoMaticModeClient = harveyNetAdapter.node_handle.serviceClient(
+          '/deactivate_default_automatic_mode',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "default_automation",
+            "display_name": "Default Automation",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = autoMaticModeClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "default_automation"
+        })
+        .then((result) => {
+          console.log("result - handleUnsetTriState - default_automation : ", result);
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "default_automation",
+              "display_name": "Default Automation",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+
+      break;
+
+      case 'lane_hold_assist':
+
+        const laneHoldClient = harveyNetAdapter.node_handle.serviceClient(
+          '/deactivate_lane_hold_assist',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "lane_hold_assist",
+            "display_name": "Lane Hold Assist",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = laneHoldClient.call({
+          request_id: "one",
+          set_to: true,
+          channel: "lane_hold_assist"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "lane_hold_assist",
+              "display_name": "Lane Hold Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+      });
+
+  		break;
+      case 'soil_flow_track_assist':
+        const soilFlowTrackAssist = harveyNetAdapter.node_handle.serviceClient(
+          '/deactivate_soil_flow_track_assist',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "soil_flow_track_assist",
+            "display_name": "Soil-Flow Track Assist",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = soilFlowTrackAssist.call({
+          request_id: "one",
+          set_to: true,
+          channel: "soil_flow_track_assist"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "soil_flow_track_assist",
+              "display_name": "Soil-Flow Track Assist",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+  		break;
+      case 'soil_flow_belt_assist':
+  		break;
+      case 'height_assist':
+      const heightHoldClient = harveyNetAdapter.node_handle.serviceClient(
+        '/deactivate_height_assist',
+        'harvey_controller/set_boolean'
+      );
+
+      this.socket.emit('harvey-hmi-monitor', {
+        "toggle_modes": [{
+          "id": "height_assist",
+          "display_name": "Height Assist",
+          "type": "TRI-STATE",
+          "high_state": false,
+          "low_state": false,
+          "disabled": false
+        }]
+      })
+
+      var result = heightHoldClient.call({
+        request_id: "one",
+        set_to: false,
+        channel: "height_assist"
+      })
+      .then((result) => {
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "height_assist",
+            "display_name": "Height Assist",
+            "type": "TRI-STATE",
+            "high_state": result.new_value === true,
+            "low_state": result.new_value !== true,
+            "disabled": false
+          }]
+        })
+
+        if (result.status != 'SUCCEEDED') {
+          // TODO send the error message to the front-end
+        }
+
+      })
+      .catch((error) => { // TODO handle the errors
+        console.error('error', error);
+      });
+  		break;
+      case 'speed_assist':
+  		break;
+      case 'hmi_active':
+        const hmiClient = harveyNetAdapter.node_handle.serviceClient(
+          '/deactivate_hmi',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "hmi_active",
+            "display_name": "HMI",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = hmiClient.call({
+          request_id: "one",
+          set_to: false,
+          channel: "hmi_active"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "hmi_active",
+              "display_name": "HMI",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+      break;
+      case 'machine_lights':
+        const machineLightsClient = harveyNetAdapter.node_handle.serviceClient(
+          '/deactivate_machine_lights',
+          'harvey_controller/set_boolean'
+        );
+
+        this.socket.emit('harvey-hmi-monitor', {
+          "toggle_modes": [{
+            "id": "machine_lights",
+            "display_name": "Machine Lights",
+            "type": "TRI-STATE",
+            "high_state": false,
+            "low_state": false,
+            "disabled": false
+          }]
+        })
+
+        var result = machineLightsClient.call({
+          request_id: "one",
+          set_to: false,
+          channel: "machine_lights"
+        })
+        .then((result) => {
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "toggle_modes": [{
+              "id": "machine_lights",
+              "display_name": "Machine Lights",
+              "type": "TRI-STATE",
+              "high_state": result.new_value === true,
+              "low_state": result.new_value !== true,
+              "disabled": false
+            }]
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+  		break;
+      case 'machine_paused':
+        const machinePause = harveyNetAdapter.node_handle.serviceClient(
+          '/unpause_machine',
+          'harvey_controller/set_boolean'
+        );
+
+        console.log("cancelling pause state");
+
+        var result = machinePause.call({
+          request_id: "one",
+          set_to: true,
+          channel: "machine_paused"
+        })
+        .then((result) => {
+
+          console.log("cancelled pause state");
+
+          this.socket.emit('harvey-hmi-monitor', {
+            "machine_paused": result.new_value
+          })
+
+          if (result.status != 'SUCCEEDED') {
+            // TODO send the error message to the front-end
+          }
+
+        })
+        .catch((error) => { // TODO handle the errors
+          console.error('error', error);
+        });
+  		break;
+  		default:
+  		throw `Channel - ${channel} - not a tri-state channel!`;
+  		break;
+  	}
+  }
+
   handleControlMessage(data) {
-    console.log('data in handler', data);
-    console.log('this.debug_messages', this.debug_messages);
+    // console.log('data in handler', data);
+    // console.log('this.debug_messages', this.debug_messages);
     if (this.node_handle !== 'NONE' && this.controlMessagePublisher !== 'NONE') {
-      const hmi_controller = rosnodejs.require('hmi_controller');
-      const harvey_hmi_msg = hmi_controller.msg.harvey_hmi_msg;
+      const harvey_controller = rosnodejs.require('harvey_controller');
+      const harvey_hmi_msg = harvey_controller.msg.harvey_hmi_msg;
       const msg = harvey_hmi_msg();
+      const triStateModes = [
+        'lane_hold_assist',
+        'soil_flow_track_assist',
+        'soil_flow_belt_assist',
+        'height_assist',
+        'speed_assist',
+        'hmi_active',
+        'machine_lights',
+        'machine_paused',
+        'default_automation'
+      ];
 
       if ('increment' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'increment');
-        }
-        this.controlMessagePublisher.publish(getIncrementMessage(msg, data['increment'][0], data['increment'][1]));
+        this.handleIncrementMessage(data);
       }
 
       if ('decrement' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'decrement');
-        }
-        this.controlMessagePublisher.publish(getDecrementMessage(msg, data['decrement'][0], data['decrement'][1]));
+        this.handleDecrementMessage(data);
       }
 
       if ('set' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'set');
+        if (triStateModes.includes(data['set'][0])) {
+          console.log("Using service");
+          this.handleSetTriState(data);
+        } else {
+          console.log("data", data);
+          console.log("Kicking it old-school");
+          if (this.debug_messages.includes('action_types')) {
+            console.log(`harvey-hmi-control: %j`, 'set');
+          }
+          this.controlMessagePublisher.publish(getSetMessage(msg, data['set'][0]));
         }
-        this.controlMessagePublisher.publish(getSetMessage(msg, data['set'][0]));
       }
 
       if ('unset' in data) {
-        if (this.debug_messages.includes('action_types')) {
-          console.log(`harvey-hmi-control: %j`, 'unset');
+        if (triStateModes.includes(data['unset'][0])) {
+          this.handleUnsetTriState(data);
+        } else {
+          if (this.debug_messages.includes('action_types')) {
+            console.log(`harvey-hmi-control: %j`, 'unset');
+          }
+          this.controlMessagePublisher.publish(getUnsetMessage(msg, data['unset'][0]));
         }
-        this.controlMessagePublisher.publish(getUnsetMessage(msg, data['unset'][0]));
       }
 
       if ('load-file' in data) {
@@ -625,73 +1485,11 @@ function getSaveFileMessage(msg, name) {
   };
 }
 
-function packLightWeightMessage(statusMessage) {
-  return {
-  "hmi_active": statusMessage.hmi_mode,
-  "machine_paused": statusMessage.paused || false,
-  "home": [
-    {
-      "id": "machine_lights",
-      "display_name": "Machine Lights",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.machine_lights_on === true),
-      "low_state": (statusMessage.machine_lights_on !== true),
-      "disabled": false
-    }
-  ],
-  "toggle_modes": [
-    // If you are ready to build it, you can actually hide items that are in the design but not in this list
-    {
-      "id": "lane_hold_assist",
-      "display_name": "Follow Lane",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.lanefollow_mode === true),
-      "low_state": (statusMessage.lanefollow_mode !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_belt_assist",
-      "display_name": "SFC - Belt",
-      "type": "TRI-STATE",
-      "high_state": (statusMessage.soilflow_belt_control === true),
-      "low_state": (statusMessage.soilflow_belt_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "soil_flow_track_assist",
-      "display_name": "SFC - Track",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.soilflow_track_control === true),
-      "low_state": (statusMessage.soilflow_track_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "height_assist",
-      "display_name": "Hold Height",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.intake_height_control === true),
-      "low_state": (statusMessage.intake_height_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "speed_assist",
-      "display_name": "Hold Speed",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.speed_control === true),
-      "low_state": (statusMessage.speed_control !== true),
-      "disabled": false
-    }
-  ]
-}
-}
-
 function packStatusMessage(statusMessage) {
+  console.log("statusMessage", statusMessage);
   return {
-  "hmi_active": statusMessage.hmi_mode,
-  "machine_paused": statusMessage.paused || false,
+  "hmi_active": !statusMessage.hmi_locked,
+  "machine_paused": statusMessage.machine_paused || false,
   "error_message": statusMessage.error_string,
   "warning_message": statusMessage.warn_string,
   "info_message": statusMessage.info_string, // TODO deal with empty strings
@@ -701,11 +1499,11 @@ function packStatusMessage(statusMessage) {
       "id": "track_speed",
       "display_name": "Track Speed",
       "type": "ANALOG",
-      "target": statusMessage.track_maxpwm,
+      "target": statusMessage.target_track_speed,
       "min_limit": 255,
       "max_limit": 0,
       "scaling_factor": (100/255),
-      "actual": ((statusMessage.left_track_curpwm + statusMessage.right_track_curpwm) / 2),
+      // "actual": ((statusMessage.left_track_curpwm + statusMessage.right_track_curpwm) / 2),
       "unit": "%",
       "disabled": false
     },
@@ -713,11 +1511,11 @@ function packStatusMessage(statusMessage) {
       "id": "back_belt",
       "display_name": "Sorting Belt",
       "type": "ANALOG",
-      "target": statusMessage.back_belt_pwm,
+      "target": statusMessage.target_belt_speed,
       "min_limit": 255,
       "max_limit": 0,
       "scaling_factor": (100/255),
-      "actual": statusMessage.back_belt_curpwm,
+      // "actual": statusMessage.back_belt_curpwm,
       "unit": "%",
       "disabled": false
     },
@@ -725,11 +1523,11 @@ function packStatusMessage(statusMessage) {
       "id": "front_belt",
       "display_name": "Sieving Belt",
       "type": "ANALOG",
-      "target": statusMessage.front_belt_pwm,
+      "target": statusMessage.target_belt_speed,
       "min_limit": 255,
       "max_limit": 0,
       "scaling_factor": (100/255),
-      "actual": statusMessage.front_belt_curpwm,
+      // "actual": statusMessage.front_belt_curpwm,
       "unit": "%",
       "disabled": false
     },
@@ -774,7 +1572,7 @@ function packStatusMessage(statusMessage) {
       "high_state": (statusMessage.machine_lights_on === true),
       "low_state": (statusMessage.machine_lights_on !== true),
       "disabled": false
-    }
+    }//,
     // {
     //   "id": "on_active",
     //   "display_name": "ON",
@@ -799,19 +1597,19 @@ function packStatusMessage(statusMessage) {
   "toggle_modes": [
     // If you are ready to build it, you can actually hide items that are in the design but not in this list
     {
-      "id": "lane_hold_assist",
-      "display_name": "Follow Lane",
+      "id": "default_automation",
+      "display_name": "Default Automation",
       "type": "TRI-STATE",
-      "high_state": (statusMessage.lanefollow_mode === true),
-      "low_state": (statusMessage.lanefollow_mode !== true),
+      "high_state": (statusMessage.default_automatic_mode === true),
+      "low_state": (statusMessage.default_automatic_mode !== true),
       "disabled": false
     },
     {
-      "id": "soil_flow_belt_assist",
-      "display_name": "SFC - Belt",
+      "id": "lane_hold_assist",
+      "display_name": "Follow Lane",
       "type": "TRI-STATE",
-      "high_state": (statusMessage.soilflow_belt_control === true),
-      "low_state": (statusMessage.soilflow_belt_control !== true),
+      "high_state": (statusMessage.lane_follow_mode === true),
+      "low_state": (statusMessage.lane_follow_mode !== true),
       "disabled": false
     },
     {
@@ -830,15 +1628,6 @@ function packStatusMessage(statusMessage) {
       // If both states are false consider it to be unknown and show a loading state
       "high_state": (statusMessage.intake_height_control === true),
       "low_state": (statusMessage.intake_height_control !== true),
-      "disabled": false
-    },
-    {
-      "id": "speed_assist",
-      "display_name": "Hold Speed",
-      "type": "TRI-STATE",
-      // If both states are false consider it to be unknown and show a loading state
-      "high_state": (statusMessage.speed_control === true),
-      "low_state": (statusMessage.speed_control !== true),
       "disabled": false
     }
   ]
